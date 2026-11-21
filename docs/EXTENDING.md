@@ -111,6 +111,9 @@ detectable today.
 - Custom election files, immutable candidate fingerprints, atomic voter-roll
   import and signed JSON exports keep configuration and verification data
   portable without adding runtime dependencies.
+- [`docs/DESIGN.md`](DESIGN.md) records the civic-ledger visual system, progress
+  stepper, printable receipt and no-JS/no-external-asset constraints; the
+  Chromium CI job verifies rendered CSS and serif type.
 
 **Still needed before any production claim:**
 

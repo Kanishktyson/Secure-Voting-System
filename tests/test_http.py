@@ -497,6 +497,27 @@ class ExportHttpTests(unittest.TestCase):
         with open_db(self.config) as conn:
             set_state(conn, self.config, "admin", "closed")
 
+    def test_civic_ledger_design_is_local_and_accessible(self):
+        body, status, _ = self.get("/")
+        self.assertEqual(status, 200)
+        self.assertIn('class="status-strip"', body)
+        self.assertIn("The civic ledger", body)
+        self.assertNotIn("<script", body.lower())
+        self.assertNotIn(" style=", body)
+        self.assertIn('href="/static/style.css"', body)
+
+        login, status, _ = self.get("/login")
+        self.assertEqual(status, 200)
+        self.assertIn('class="journey"', login)
+        self.assertIn('aria-current="step"', login)
+
+        css, status, _ = self.get("/static/style.css")
+        self.assertEqual(status, 200)
+        self.assertIn("--accent", css)
+        self.assertIn("Georgia", css)
+        self.assertIn("repeating-linear-gradient", css)
+        self.assertIn("@media print", css)
+
     def test_json_exports_are_public_and_well_formed(self):
         body, status, headers = self.get("/export/audit.json")
         self.assertEqual(status, 200)

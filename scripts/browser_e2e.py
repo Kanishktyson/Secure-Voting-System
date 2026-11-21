@@ -15,7 +15,8 @@ The script starts the real stdlib HTTP server on an ephemeral port and drives
 a custom election through Chromium: register, vote, verify a receipt, inspect
 the public board, confirm sealed results, close as admin, then download and
 validate certified results / audit exports. There is no JavaScript in the app,
-so every assertion below exercises actual HTML form navigation and CSS.
+so every assertion below exercises actual HTML form navigation and the rendered
+civic-ledger CSS (ruled paper, system serif type and no inline styles).
 """
 
 from __future__ import annotations
@@ -93,15 +94,20 @@ def run(base: str, title: str) -> None:
         hero_css = page.locator(".hero").evaluate(
             "el => getComputedStyle(el).backgroundImage"
         )
-        assert "linear-gradient" in hero_css, f"CSS did not render: {hero_css}"
+        heading_font = page.locator("h1").evaluate(
+            "el => getComputedStyle(el).fontFamily"
+        )
+        assert "repeating-linear-gradient" in hero_css, f"ledger CSS did not render: {hero_css}"
+        assert "Georgia" in heading_font, f"serif display type did not render: {heading_font}"
         assert page.locator("script").count() == 0, "unexpected JavaScript"
+        assert page.locator("[style]").count() == 0, "unexpected inline styles"
         screenshot = os.environ.get("SVS_SCREENSHOT_PATH")
         if screenshot:
             Path(screenshot).parent.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=screenshot, full_page=True)
         page.keyboard.press("Tab")
         expect(page.locator(".skip-link")).to_be_focused()
-        print(f"[browser] ✓ rendered HTML/CSS with no JS ({hero_css[:48]}…)", flush=True)
+        print("[browser] ✓ rendered civic-ledger CSS / serif type with no JS", flush=True)
 
         page.goto(base + "/register")
         page.locator('form[action="/register"] input[name="username"]').fill(

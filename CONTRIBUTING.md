@@ -13,6 +13,8 @@ base small, readable and testable.
   `requirements-browser.txt` for Playwright E2E.
 - Keep ballots anonymous by schema. Never add a voter ID, foreign key or
   receipt secret to `ballots`, `sessions` or `audit_log`.
+- Preserve the civic-ledger visual system in [`docs/DESIGN.md`](docs/DESIGN.md):
+  no external fonts/assets, no JS, no inline styles, no generic gradient hero.
 - Preserve the fail-closed behaviour: chain errors, sealed results, CSRF
   failures and malformed election files must never silently pass.
 - Update tests and docs with behaviour changes. Avoid claims of production

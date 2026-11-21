@@ -24,7 +24,14 @@ release is tagged.
   Chromium and runs it on every push / PR.
 - GitHub community polish: issue forms, PR checklist, contributing guide,
   security policy, code of conduct, changelog and Dependabot configuration.
-- 15 new tests (104 total) and a refreshed screenshot overview.
+- Replaced the generic gradient dashboard with a civic-paper ledger design
+  system: warm paper, ink rules, vermilion stamp accent, serif display type,
+  lettered ballot sheets, printable receipts, a progress stepper, sealed
+  envelope state, certified-return results and ruled ledger tables.
+- [`docs/DESIGN.md`](docs/DESIGN.md) documenting the visual rules, tokens and
+  anti-patterns.
+- 16 new tests (105 total), including a design regression test, and refreshed
+  screenshots (`00-overview.png`, `01`–`12`).
 
 ### Changed
 
@@ -32,12 +39,12 @@ release is tagged.
   and exports cannot drift from the initialized election definition.
 - `make check-all` runs the coverage gate, HTTP E2E and browser E2E;
   `make browser-install` provisions Playwright separately.
-- README now documents custom elections, import/export, browser CI and the
-  exact production limitations.
+- README now documents the civic-ledger design, custom elections,
+  import/export, browser CI and the exact production limitations.
 
 ### Verification
 
-- `104` unit/integration tests pass; statement coverage is `96%` with a
+- `105` unit/integration tests pass; statement coverage is `96%` with a
   `90%` CI gate.
 - `scripts/e2e.py` and `scripts/browser_e2e.py` pass locally.
 - Runtime remains Python-standard-library-only; all browser tooling is

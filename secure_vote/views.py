@@ -1,8 +1,9 @@
 """HTML rendering.
 
-Every dynamic value passes through :func:`esc` before interpolation. There is
-no JavaScript in the application and the CSP forbids inline scripts, so the
-output is safe by construction rather than by convention.
+The interface is a small civic-paper ledger: editorial serif headings, ruled
+paper, stamp-like badges and tabular records. Every dynamic value passes through
+:func:`esc`; there is no JavaScript, no inline style and no external asset, so
+the strict CSP stays intact.
 """
 
 from __future__ import annotations
@@ -36,6 +37,14 @@ def _election(ctx: ViewContext) -> dict[str, Any]:
         "state": "open",
         "candidates": [],
     }
+
+
+def _election_title(ctx: ViewContext) -> str:
+    return str(_election(ctx).get("title") or "General Election")
+
+
+def _election_state(ctx: ViewContext) -> str:
+    return str(_election(ctx).get("state") or "open")
 
 
 def csrf_input(ctx: ViewContext) -> str:
@@ -86,11 +95,46 @@ def _nav(ctx: ViewContext, active: str) -> str:
         )
     return (
         '<header class="topbar"><div class="shell topbar-inner">'
-        '<a class="brand" href="/"><span class="brand-mark">◆</span>'
-        '<span>Secure<span class="brand-accent">Vote</span></span></a>'
+        '<a class="brand" href="/">'
+        '<span class="brand-mark" aria-hidden="true">SV</span>'
+        '<span class="brand-word"><span class="brand-kicker">Civic ledger</span>'
+        '<span class="brand-name">Secure<span class="brand-accent">Vote</span></span></span></a>'
         f'<nav class="nav" aria-label="Main navigation">{items}</nav>'
         f'<div class="account-area">{account}</div>'
         "</div></header>"
+    )
+
+
+def _status_strip(ctx: ViewContext) -> str:
+    return (
+        '<div class="status-strip"><div class="shell status-strip-inner">'
+        f'<span class="status-election">Election <strong>{esc(_election_title(ctx))}</strong></span>'
+        '<span class="status-meta">No JavaScript · 0 runtime dependencies · public audit trail</span>'
+        f'<span class="status-state">{state_badge(_election_state(ctx))}</span>'
+        "</div></div>"
+    )
+
+
+def _journey(step: str) -> str:
+    if not step:
+        return ""
+    steps = (
+        ("login", "01", "Sign in"),
+        ("vote", "02", "Mark ballot"),
+        ("receipt", "03", "Save receipt"),
+        ("verify", "04", "Verify"),
+    )
+    items = "".join(
+        f'<li class="journey-step{" current" if key == step else ""}"'
+        + (' aria-current="step"' if key == step else "")
+        + f'><span class="journey-num">{esc(number)}</span>'
+        f'<span class="journey-label">{esc(label)}</span></li>'
+        for key, number, label in steps
+    )
+    return (
+        '<nav class="journey" aria-label="Voting progress">'
+        f'<div class="shell"><ol class="journey-list">{items}</ol></div>'
+        "</nav>"
     )
 
 
@@ -101,35 +145,40 @@ def page(
     *,
     active: str = "",
     subtitle: str = "",
+    step: str = "",
 ) -> str:
     head = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{esc(title)} · {esc(_election(ctx)['title'])} · SecureVote</title>"
-        '<meta name="description" content="A verifiable, anonymous electronic voting prototype.">'
+        f"<title>{esc(title)} · {esc(_election_title(ctx))} · SecureVote</title>"
+        '<meta name="description" content="A verifiable, anonymous electronic voting prototype with a civic-paper ledger interface.">'
         '<link rel="stylesheet" href="/static/style.css">'
         '<meta name="color-scheme" content="light">'
         "</head><body>"
         '<a class="skip-link" href="#main-content">Skip to main content</a>'
     )
-    hero = ""
+    masthead = ""
     if subtitle:
-        hero = (
-            '<section class="page-head"><div class="shell">'
-            f'<div class="page-eyebrow">{esc(_election(ctx)["title"])}</div>'
+        masthead = (
+            '<section class="page-head"><div class="shell page-head-inner">'
+            '<div class="page-folio"><span>SecureVote / election record</span>'
+            f'<span>{esc(_election_title(ctx))}</span></div>'
+            f'<div class="page-eyebrow">{esc(_election_title(ctx))}</div>'
             f'<h1>{esc(title)}</h1><p>{esc(subtitle)}</p>'
             "</div></section>"
         )
     footer = (
         '<footer class="footer"><div class="shell footer-inner">'
         "<span>SecureVote · an educational, verifiable voting prototype</span>"
-        '<span>Standard library only · <a href="/audit">public audit log</a></span>'
+        '<span>Set in system serif &amp; sans · no external assets · <a href="/audit">public audit log</a></span>'
         "</div></footer>"
     )
     return (
         head
         + _nav(ctx, active)
-        + hero
+        + _status_strip(ctx)
+        + masthead
+        + _journey(step)
         + f'<main id="main-content" class="shell main" tabindex="-1">{content}</main>'
         + footer
         + "</body></html>"
@@ -152,6 +201,22 @@ def _stat(label: str, value: Any, hint: str = "") -> str:
     )
 
 
+def _section_head(label: str, note: str = "") -> str:
+    note_html = f"<span>{esc(note)}</span>" if note else "<span>Recorded locally</span>"
+    return (
+        '<div class="section-head">'
+        f"<h2>{esc(label)}</h2>{note_html}</div>"
+    )
+
+
+def _step_card(number: str, title: str, body: str) -> str:
+    return (
+        '<article class="card step-card">'
+        f'<span class="step-number">{esc(number)}</span>'
+        f"<h2>{esc(title)}</h2><p>{body}</p></article>"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
@@ -162,11 +227,11 @@ def home(
 ) -> str:
     state = str(stats["state"])
     if state == "open":
-        cta = '<a class="btn btn-primary" href="/vote">Cast your ballot</a>'
+        cta = '<a class="btn btn-primary" href="/vote">Cast your ballot <span aria-hidden="true">→</span></a>'
     elif state == "closed":
-        cta = '<a class="btn btn-primary" href="/results">View results</a>'
+        cta = '<a class="btn btn-primary" href="/results">View results <span aria-hidden="true">→</span></a>'
     else:
-        cta = '<a class="btn btn-primary" href="/login">Sign in</a>'
+        cta = '<a class="btn btn-primary" href="/login">Sign in <span aria-hidden="true">→</span></a>'
 
     integrity_badge = (
         _badge("Integrity verified", "ok")
@@ -190,7 +255,7 @@ def home(
     election_copy = esc(election.get("description") or "")
 
     stats_grid = (
-        '<div class="stats">'
+        '<div class="stats ledger-stats">'
         + _stat("Registered voters", stats["eligible"], "excluding the election admin")
         + _stat("Ballots cast", stats["ballots"], "anonymous, unlinkable records")
         + _stat("Election state", state, "setup / open / closed")
@@ -200,44 +265,45 @@ def home(
     body = (
         '<section class="hero"><div class="shell hero-inner">'
         '<div class="hero-copy">'
-        '<div class="eyebrow">Verifiable · Anonymous · Auditable</div>'
+        '<div class="eyebrow">The civic ledger · edition 01</div>'
         + election_line
         + "<h1>A voting system you can actually check.</h1>"
-        + (f"<p>{election_copy}</p>" if election_copy else "")
+        + (f'<p class="lede">{election_copy}</p>' if election_copy else "")
         + "<p>Every ballot is anonymous, cryptographically committed, and linked "
         "into a tamper-evident chain. You get a private receipt and can confirm "
         "your vote was recorded without revealing how you voted.</p>"
         f'<div class="hero-actions">{cta}<a class="btn btn-outline" href="/verify">Verify a ballot</a></div>'
+        '<div class="hero-meta"><span>One person, one vote</span>'
+        "<span>No tracking scripts</span><span>Stdlib only</span></div>"
         "</div>"
-        '<div class="hero-panel">'
+        '<aside class="hero-panel" aria-label="Live election status">'
+        '<div class="poll-card-title">Poll card / live status</div>'
         f'<div class="panel-row"><span>Election status</span>{state_badge(state)}</div>'
         f'<div class="panel-row"><span>Ballot chain</span>{_badge("OK" if integrity["ballot_chain_ok"] else "FAILED", "ok" if integrity["ballot_chain_ok"] else "danger")}</div>'
         f'<div class="panel-row"><span>Audit chain</span>{_badge("OK" if integrity["audit_chain_ok"] else "FAILED", "ok" if integrity["audit_chain_ok"] else "danger")}</div>'
         f'<div class="panel-row"><span>Ballot options</span><span class="mono">{len(election.get("candidates", []))}</span></div>'
         '<div class="panel-row"><span>Runtime dependencies</span><span class="mono">0</span></div>'
-        f'<div class="panel-foot">{integrity_badge}</div>'
-        "</div></div></section>"
-        f'<div class="shell">{problems}{stats_grid}</div>'
-        '<section class="shell steps">'
-        + _card(
-            "1 · Register & sign in",
-            "<p>Salted PBKDF2 password hashes, opaque server-side sessions and "
-            "CSRF tokens on every state change.</p>",
+        f'<div class="panel-foot"><span class="stamp">{integrity_badge}</span></div>'
+        "</aside></div></section>"
+        f'<div class="shell">{problems}{_section_head("At a glance")}{stats_grid}</div>'
+        '<section class="shell steps" aria-label="How voting works">'
+        + _step_card(
+            "01",
+            "Register & sign in",
+            "Salted PBKDF2 password hashes, opaque server-side sessions and CSRF tokens on every state change.",
         )
-        + _card(
-            "2 · Cast one secret ballot",
-            "<p>Ballots are stored with no voter identifier. A conditional update "
-            "inside a serialisable transaction makes double voting impossible, "
-            "even under concurrent requests.</p>",
+        + _step_card(
+            "02",
+            "Cast one secret ballot",
+            "Ballots are stored with no voter identifier. A conditional update inside a serialisable transaction makes double voting impossible, even under concurrent requests.",
         )
-        + _card(
-            "3 · Verify the count",
-            "<p>Your receipt lets you recompute your ballot's public commitment. "
-            "The bulletin board, hash chain and audit log let anyone check the "
-            "election after it closes.</p>",
+        + _step_card(
+            "03",
+            "Verify the count",
+            "Your receipt lets you recompute the ballot commitment. The public board, hash chain and audit log let anyone check the election after it closes.",
         )
         + "</section>"
-        '<section class="shell"><div class="notice notice-info">'
+        '<section class="shell"><div class="notice notice-info scope-note">'
         "<strong>Scope note.</strong> This is an educational prototype, not "
         "production election software. It guarantees integrity and ballot "
         "secrecy against database readers, but the server is still trusted with "
@@ -259,29 +325,34 @@ def login(
         demo_html = (
             '<div class="notice notice-info demo-credentials">'
             "<strong>Demo accounts</strong>"
-            f"<p>Voters: <span class='mono'>{esc(voters)}</span> · password "
-            f"<span class='mono'>{esc(DEMO_VOTERS[0][1])}</span></p>"
-            f"<p>Admin: <span class='mono'>{esc(DEMO_ADMIN[0])}</span> · password "
-            f"<span class='mono'>{esc(DEMO_ADMIN[1])}</span></p>"
-            "</div>"
+            '<dl class="demo-grid">'
+            f"<dt>Voters</dt><dd><span class='mono'>{esc(voters)}</span> · "
+            f"password <span class='mono'>{esc(DEMO_VOTERS[0][1])}</span></dd>"
+            f"<dt>Admin</dt><dd><span class='mono'>{esc(DEMO_ADMIN[0])}</span> · "
+            f"password <span class='mono'>{esc(DEMO_ADMIN[1])}</span></dd>"
+            "</dl></div>"
         )
     form = (
-        f'<form method="post" action="/login" class="form">{csrf_input(ctx)}'
+        f'<form method="post" action="/login" class="form paper-form">{csrf_input(ctx)}'
+        '<div class="form-intro"><span class="form-index">01</span>'
+        "<p>Use the account on the electoral roll. Sessions expire automatically "
+        "and every state change carries a fresh CSRF token.</p></div>"
         '<label for="username">Username</label>'
         f'<input id="username" name="username" autocomplete="username" required '
-        f'value="{esc(username)}" maxlength="32">'
+        f'value="{esc(username)}" maxlength="32" placeholder="e.g. alice">'
         '<label for="password">Password</label>'
         '<input id="password" name="password" type="password" '
-        'autocomplete="current-password" required maxlength="128">'
-        '<button class="btn btn-primary btn-block" type="submit">Sign in</button>'
+        'autocomplete="current-password" required maxlength="128" placeholder="Your password">'
+        '<button class="btn btn-primary btn-block" type="submit">Sign in <span aria-hidden="true">→</span></button>'
         "</form>"
-        '<p class="muted">No account yet? <a href="/register">Register as a voter</a>.</p>'
+        '<p class="muted form-after">No account yet? <a href="/register">Register as a voter</a>.</p>'
     )
     return page(
         "Sign in",
-        f'<div class="narrow">{error_html}{_card("Welcome back", form)}{demo_html}</div>',
+        f'<div class="narrow">{error_html}{_card("Welcome back", form, extra_class="auth-card")}{demo_html}</div>',
         ctx,
         active="login",
+        step="login",
         subtitle="Authenticate to cast a ballot or administer the election.",
     )
 
@@ -291,24 +362,30 @@ def register(ctx: ViewContext, *, error: str = "", username: str = "") -> str:
         f'<div class="notice notice-danger">{esc(error)}</div>' if error else ""
     )
     form = (
-        f'<form method="post" action="/register" class="form">{csrf_input(ctx)}'
+        f'<form method="post" action="/register" class="form paper-form">{csrf_input(ctx)}'
+        '<div class="form-intro"><span class="form-index">01</span>'
+        "<p>One account, one ballot. Choose a username and a long password; "
+        "the server stores only a salted PBKDF2 hash.</p></div>"
         '<label for="username">Username</label>'
         f'<input id="username" name="username" autocomplete="username" required '
         f'value="{esc(username)}" maxlength="32" '
-        'pattern="[a-z0-9_]{3,32}" title="3-32 lowercase letters, digits or underscore">'
+        'pattern="[a-z0-9_]{3,32}" title="3-32 lowercase letters, digits or underscore" placeholder="lowercase_name">'
+        '<p class="field-hint">3–32 lowercase letters, digits or underscore.</p>'
         '<label for="password">Password</label>'
         '<input id="password" name="password" type="password" '
-        'autocomplete="new-password" required minlength="12" maxlength="128">'
-        '<p class="field-hint">At least 12 characters, including a letter and a digit.</p>'
-        '<button class="btn btn-primary btn-block" type="submit">Create account</button>'
+        'autocomplete="new-password" required minlength="12" maxlength="128" '
+        'aria-describedby="password-hint" placeholder="At least 12 characters">'
+        '<p class="field-hint" id="password-hint">At least 12 characters, including a letter and a digit.</p>'
+        '<button class="btn btn-primary btn-block" type="submit">Create account <span aria-hidden="true">→</span></button>'
         "</form>"
-        '<p class="muted">Already registered? <a href="/login">Sign in</a>.</p>'
+        '<p class="muted form-after">Already registered? <a href="/login">Sign in</a>.</p>'
     )
     return page(
         "Register",
-        f'<div class="narrow">{error_html}{_card("Create a voter account", form)}</div>',
+        f'<div class="narrow">{error_html}{_card("Create a voter account", form, extra_class="auth-card")}</div>',
         ctx,
         active="register",
+        step="login",
         subtitle="One account, one ballot. Registration is open while the election is open.",
     )
 
@@ -322,29 +399,34 @@ def ballot(
     error_html = (
         f'<div class="notice notice-danger">{esc(error)}</div>' if error else ""
     )
+    items = list(candidates)
     options = "".join(
         '<label class="option">'
         f'<input type="radio" name="choice" value="{esc(c.key)}" required>'
+        f'<span class="option-code" aria-hidden="true">{esc(chr(64 + index))}</span>'
         '<span class="option-body">'
         f'<span class="option-label">{esc(c.label)}</span>'
         f'<span class="option-desc">{esc(c.description)}</span>'
         "</span></label>"
-        for c in candidates
+        for index, c in enumerate(items, start=1)
     )
     form = (
         f'<form method="post" action="/vote" class="form">{csrf_input(ctx)}'
-        f'<fieldset class="options"><legend>Choose one option</legend>{options}</fieldset>'
-        '<div class="notice notice-warning">Your choice is final. Once cast, a '
-        "ballot cannot be changed or withdrawn, and the server deliberately "
-        "forgets the link between you and your ballot.</div>"
-        '<button class="btn btn-primary btn-block" type="submit">Cast ballot</button>'
+        '<div class="ballot-head"><span>Official ballot</span>'
+        f'<span>{esc(_election_title(ctx))}</span></div>'
+        f'<fieldset class="options"><legend>Mark one option</legend>{options}</fieldset>'
+        '<div class="notice notice-warning ballot-warning"><strong>Your choice is final.</strong> '
+        "Once cast, a ballot cannot be changed or withdrawn, and the server "
+        "deliberately forgets the link between you and your ballot.</div>"
+        '<button class="btn btn-primary btn-block" type="submit">Cast ballot <span aria-hidden="true">→</span></button>'
         "</form>"
     )
     return page(
         "Ballot",
-        f'<div class="narrow">{error_html}{_card("Official ballot", form)}</div>',
+        f'<div class="narrow">{error_html}{_card("Ballot paper", form, extra_class="ballot-sheet")}</div>',
         ctx,
         active="vote",
+        step="vote",
         subtitle="Mark one option. Your selection is never written alongside your identity.",
     )
 
@@ -364,6 +446,7 @@ def already_voted(ctx: ViewContext) -> str:
         f'<div class="narrow">{_card("One person, one vote", body)}</div>',
         ctx,
         active="vote",
+        step="receipt",
         subtitle="This account has already participated.",
     )
 
@@ -379,7 +462,7 @@ def receipt(ctx: ViewContext, receipt: dict[str, str]) -> str:
     ]
     rows = "".join(
         f'<div class="receipt-row"><dt>{esc(label)}</dt>'
-        f'<dd class="mono">{esc(receipt.get(key, ""))}</dd></div>'
+        f'<dd class="mono wrap">{esc(receipt.get(key, ""))}</dd></div>'
         for label, key in fields
     )
     hidden = "".join(
@@ -397,19 +480,26 @@ def receipt(ctx: ViewContext, receipt: dict[str, str]) -> str:
         "Save this receipt now — it is shown only once and is never stored by "
         "the server. It proves your vote was counted without revealing your "
         "identity to anyone else.</div>"
+        '<div class="receipt-sheet">'
+        '<div class="receipt-topline"><span>Private receipt</span>'
+        '<span class="stamp stamp-small">Save now</span></div>'
         f'<dl class="receipt">{rows}</dl>'
-        '<form method="post" action="/verify" class="form">'
+        '<div class="receipt-foot">Print this page or save it as PDF. '
+        "The server cannot reissue these values.</div>"
+        "</div>"
+        '<form method="post" action="/verify" class="form receipt-verify-form">'
         f'{csrf_input(ctx)}<input type="hidden" name="mode" value="receipt">{hidden}'
-        '<button class="btn btn-primary" type="submit">Verify this ballot now</button>'
+        '<button class="btn btn-primary" type="submit">Verify this ballot now <span aria-hidden="true">→</span></button>'
         "</form>"
-        '<p class="muted"><a href="/verify">Open the public bulletin board</a> '
+        '<p class="muted form-after"><a href="/verify">Open the public bulletin board</a> '
         "to see that your tracking code and commitment are published.</p>"
     )
     return page(
         "Your receipt",
-        f'<div class="narrow">{_card("Keep this somewhere safe", body)}</div>',
+        f'<div class="narrow">{_card("Keep this somewhere safe", body, extra_class="receipt-card")}</div>',
         ctx,
         active="vote",
+        step="receipt",
         subtitle="Your private proof that the ballot was recorded as cast.",
     )
 
@@ -444,12 +534,12 @@ def verify(
         )
 
     lookup_form = (
-        f'<form method="post" action="/verify" class="form">{csrf_input(ctx)}'
+        f'<form method="post" action="/verify" class="form compact-form">{csrf_input(ctx)}'
         '<input type="hidden" name="mode" value="lookup">'
         '<label for="tracking_code">Tracking code</label>'
         '<input id="tracking_code" name="tracking_code" required '
-        f'value="{esc(values.get("tracking_code", ""))}" maxlength="64">'
-        '<button class="btn btn-outline" type="submit">Look up</button></form>'
+        f'value="{esc(values.get("tracking_code", ""))}" maxlength="64" placeholder="Paste a public code">'
+        '<button class="btn btn-outline" type="submit">Look up <span aria-hidden="true">→</span></button></form>'
     )
     # Every control has an explicit <label for>, with ids distinct from the
     # lookup form above so the page has no duplicate ids.
@@ -464,14 +554,14 @@ def verify(
         f'<label for="{field_id}">{esc(label)}</label>'
         f'<input id="{field_id}" name="{name}" '
         f'{"required " if required else ""}maxlength="64" '
-        f'value="{esc(values.get(name, ""))}">'
+        f'value="{esc(values.get(name, ""))}" placeholder="{esc(label)}">'
         for field_id, name, label, required in receipt_fields
     )
     receipt_form = (
-        f'<form method="post" action="/verify" class="form">{csrf_input(ctx)}'
+        f'<form method="post" action="/verify" class="form compact-form">{csrf_input(ctx)}'
         '<input type="hidden" name="mode" value="receipt">'
         + receipt_controls
-        + '<button class="btn btn-outline" type="submit">Verify receipt</button></form>'
+        + '<button class="btn btn-outline" type="submit">Verify receipt <span aria-hidden="true">→</span></button></form>'
     )
 
     if board:
@@ -484,20 +574,25 @@ def verify(
             for item in board
         )
         board_html = (
-            '<div class="table-wrap"><table><thead><tr>'
+            '<div class="table-wrap ledger-table"><table><thead><tr>'
             "<th>Tracking code</th><th>Ballot commitment (SHA-256)</th><th>Chain</th>"
             f"</tr></thead><tbody>{table_rows}</tbody></table></div>"
         )
     else:
-        board_html = '<p class="muted">No ballots have been cast yet.</p>'
+        board_html = '<p class="muted empty-ledger">No ballots have been cast yet.</p>'
 
     body = (
+        '<div class="verification-intro"><span class="intro-number">04</span>'
+        "<p>Two checks, two different kinds of evidence. A tracking code is "
+        "public; the receipt nonce is private and lets only you recompute the "
+        "committed ballot.</p></div>"
         '<div class="two-col">'
         + _card(
             "Look up a tracking code",
             "<p class='muted'>Anyone can check that a tracking code is published.</p>"
             + lookup_html
             + lookup_form,
+            extra_class="verify-card",
         )
         + _card(
             "Verify a full receipt",
@@ -506,13 +601,14 @@ def verify(
             "cannot brute-force the choice without that nonce.</p>"
             + receipt_html
             + receipt_form,
+            extra_class="verify-card",
         )
         + "</div>"
         + _card(
             f"Public bulletin board · {len(board)} ballot(s)",
             "<p class='muted'>Sorted by tracking code, not by insertion order, so "
             "the board does not reveal when each person voted.</p>" + board_html,
-            extra_class="wide-card",
+            extra_class="wide-card ledger-card",
         )
     )
     return page(
@@ -520,6 +616,7 @@ def verify(
         body,
         ctx,
         active="verify",
+        step="verify",
         subtitle="Check that ballots are present, intact and counted.",
     )
 
@@ -527,14 +624,18 @@ def verify(
 def results(ctx: ViewContext, data: dict[str, Any] | None) -> str:
     if data is None:
         body = (
-            '<div class="notice notice-info"><strong>Results are sealed.</strong> '
-            "Vote totals are only published after an administrator closes the "
-            "election, so partial counts cannot influence remaining voters.</div>"
-            '<p><a class="btn btn-outline" href="/verify">Verify ballots meanwhile</a></p>'
+            '<div class="sealed-envelope" aria-label="Sealed results">'
+            '<span class="sealed-label">Sealed</span>'
+            "<h2>Results are sealed.</h2>"
+            "<p>Vote totals are only published after an administrator closes the "
+            "election, so partial counts cannot influence remaining voters.</p>"
+            "</div>"
+            '<div class="btn-row"><a class="btn btn-outline" href="/verify">Verify ballots meanwhile</a>'
+            '<a class="btn btn-outline" href="/audit">Read the audit log</a></div>'
         )
         return page(
             "Results",
-            f'<div class="narrow">{_card("Not yet published", body)}</div>',
+            f'<div class="narrow">{_card("Not yet published", body, extra_class="sealed-card")}</div>',
             ctx,
             active="results",
             subtitle="Certified totals appear here once voting closes.",
@@ -545,7 +646,7 @@ def results(ctx: ViewContext, data: dict[str, Any] | None) -> str:
     bars = "".join(
         '<div class="result-row">'
         f'<div class="result-head"><span>{esc(data["labels"].get(key, key))}</span>'
-        f'<strong>{esc(count)}</strong></div>'
+        f'<strong class="result-count">{esc(count)}</strong></div>'
         f'<progress class="bar" value="{esc(count)}" max="{esc(max_votes)}" '
         f'aria-label="Votes for {esc(data["labels"].get(key, key))}"></progress>'
         "</div>"
@@ -569,24 +670,26 @@ def results(ctx: ViewContext, data: dict[str, Any] | None) -> str:
         for label, ok, problems in checks
     )
     body = (
+        '<div class="results-masthead"><span class="results-kicker">Certified return</span>'
+        f'<span class="results-digest">Digest <span class="mono wrap">{esc(data["results_digest"])}</span></span></div>'
         '<div class="two-col">'
-        + _card("Certified count", bars, extra_class="wide-card")
+        + _card("Certified count", bars, extra_class="wide-card results-card")
         + _card(
             "Summary",
             '<div class="stats small">'
             + _stat("Ballots", data["total"])
             + _stat("Turnout", f'{data["turnout"]:.1f}%')
             + _stat("Eligible", data["registered"])
-            + "</div>"
-            f'<p class="digest">Results digest<br><span class="mono wrap">{esc(data["results_digest"])}</span></p>',
+            + "</div>",
+            extra_class="summary-card",
         )
         + "</div>"
         + _card(
             "Integrity checks",
             checks_html
-            + '<p><a class="btn btn-outline btn-sm" href="/export/results.json" download>'
+            + '<p><a class="btn btn-outline btn-sm download-link" href="/export/results.json" download>'
             "Download certified results (JSON)</a></p>",
-            extra_class="wide-card",
+            extra_class="wide-card checks-card",
         )
     )
     return page(
@@ -612,28 +715,28 @@ def audit(ctx: ViewContext, rows: Iterable[Any], *, ok: bool) -> str:
             for row in items
         )
         table = (
-            '<div class="table-wrap"><table><thead><tr><th>#</th><th>Timestamp (UTC)</th>'
+            '<div class="table-wrap ledger-table"><table><thead><tr><th>#</th><th>Timestamp (UTC)</th>'
             "<th>Actor</th><th>Action</th><th>Detail</th></tr></thead>"
             f"<tbody>{table_rows}</tbody></table></div>"
         )
     else:
-        table = '<p class="muted">No events recorded yet.</p>'
+        table = '<p class="muted empty-ledger">No events recorded yet.</p>'
 
+    tone = "notice-success" if ok else "notice-danger"
+    chain_message = (
+        "The HMAC audit chain is intact."
+        if ok
+        else "The audit chain failed verification — investigate immediately."
+    )
     body = (
-        f'<div class="notice {"notice-success" if ok else "notice-danger"}">'
-        + (
-            "The HMAC audit chain is intact."
-            if ok
-            else "The audit chain failed verification — investigate immediately."
-        )
-        + "</div>"
+        f'<div class="notice {tone}"><strong>Chain status.</strong> {chain_message}</div>'
         + _card(
             f"Recent events · {len(items)} shown",
             "<p class='muted'>Append-only and hash-chained. Ballot choices, "
             "passwords and receipt secrets are never logged.</p>" + table
-            + '<p><a class="btn btn-outline btn-sm" href="/export/audit.json" download>'
+            + '<p><a class="btn btn-outline btn-sm download-link" href="/export/audit.json" download>'
             "Download full audit log (JSON)</a></p>",
-            extra_class="wide-card",
+            extra_class="wide-card ledger-card",
         )
     )
     return page(
@@ -672,9 +775,10 @@ def admin(
         control = (
             f'<form method="post" action="/admin/transition">{csrf_input(ctx)}'
             '<input type="hidden" name="target" value="closed">'
-            '<button class="btn btn-danger" type="submit">Close election & publish results</button></form>'
-            '<p class="field-hint">This is irreversible. New ballots will be '
-            "rejected and the tally becomes public.</p>"
+            '<div class="danger-zone"><strong>Irreversible action</strong>'
+            '<p>New ballots will be rejected and the tally becomes public.</p>'
+            '<button class="btn btn-danger" type="submit">Close election & publish results</button>'
+            "</div></form>"
         )
     else:
         control = (
@@ -684,7 +788,7 @@ def admin(
         )
 
     option_list = "".join(
-        f'<li><span class="mono">{esc(c.key)}</span> — {esc(c.label)}</li>'
+        f'<li><span class="mono option-key">{esc(c.key)}</span> — {esc(c.label)}</li>'
         for c in candidates
     )
     body = (
@@ -695,6 +799,7 @@ def admin(
             "Election control",
             f'<div class="panel-row"><span>Current state</span>{state_badge(state)}</div>'
             + control,
+            extra_class="control-card",
         )
         + _card(
             "Live statistics",

@@ -13,8 +13,9 @@ imported atomically, and certified results / audit trails export as JSON for
 offline verification.
 
 Built with the **Python standard library only** — no runtime dependencies, no
-build step, no package supply chain. For a system that makes security claims, a
-small, readable trusted computing base is a feature.
+build step, no external fonts/assets, no JavaScript. For a system that makes
+security claims, a small, readable trusted computing base is a feature; the
+civic-paper ledger UI is designed to look deliberate rather than generated.
 
 > ⚠️ **This is an educational prototype, not software for real elections.**
 > It provides integrity and ballot secrecy against database readers, but the
@@ -32,14 +33,15 @@ contains a complete, tested application:
 | Before | After |
 | --- | --- |
 | A title | Runnable web app with a live UI (register → vote → receipt → verify → results) |
-| No code | ~3,200 lines of documented Python across 10 focused modules |
+| No code | ~3,300 lines of documented Python across 10 focused modules |
 | One hard-coded ballot | Strict `SVS_ELECTION_FILE` definitions with immutable candidate fingerprints |
 | No data portability | Atomic CSV voter import; signed results bundles and full audit trails as JSON downloads / CLI exports |
 | No guarantees | Ballot secrecy by schema, one-person-one-vote by transaction, hash-chained ballots + audit log, end-to-end receipt verification, signed external checkpoints |
-| No tests | 104 unit + HTTP integration tests, all passing in ~2 s; **96% statement coverage** |
+| No tests | 105 unit + HTTP integration tests, all passing in ~2 s; **96% statement coverage** |
 | No CI | GitHub Actions matrix on Python 3.10–3.13 with a `coverage report --fail-under=90` gate, HTTP lifecycle smoke, CLI/import/export smoke, and a **real Chromium E2E job** |
+| Generic gradient UI | A civic-paper ledger: warm paper, ink rules, vermilion stamp, serif display type, ballot sheets, printable receipts, progress stepper and ledger tables |
 | No accessibility | Skip link, labelled controls, unique ids, `aria-current`, `aria-label` on result bars, focus-visible rings, reduced-motion support, CSP with no JS |
-| No docs beyond the title | README, screenshots, `docs/EXTENDING.md`, MIT license, Makefile, CI, issue/PR templates, contributing, security and conduct policies |
+| No docs beyond the title | README, screenshots, `docs/DESIGN.md`, `docs/EXTENDING.md`, MIT license, Makefile, CI, issue/PR templates, contributing, security and conduct policies |
 
 ---
 
@@ -107,6 +109,33 @@ sign-in page. Never use demo mode in a real deployment.
 5. **Close and count.** An admin closes the election (`/admin`), which seals and
    publishes the tally together with integrity checks and a reproducible results
    digest. Closing is irreversible.
+
+---
+
+## Design & UX
+
+The interface is deliberately **not** a generic SaaS dashboard. It uses a
+civic-paper ledger system: warm paper, ink rules, one vermilion stamp accent,
+editorial serif headings, tabular records, ruled ballot sheets and a receipt
+that prints cleanly. There are no external fonts, icon packs, images, JS or
+inline styles — the whole visual identity is one local stylesheet.
+
+UX decisions are functional, not decorative:
+
+* A persistent **status strip** shows the active election and whether voting is
+  open on every page.
+* A four-step **progress ledger** (sign in → ballot → receipt → verify) keeps
+  voters oriented through the whole flow.
+* Ballot options are lettered paper rows with generous hit areas; the warning
+  is next to the irreversible action.
+* The one-time receipt is framed as a physical document with a print hint and a
+  `@media print` layout.
+* Sealed results use an envelope state instead of an empty chart, and published
+  results read like a certified return with digest and download links.
+* Audit and bulletin-board data use ruled ledger tables with tabular numerals.
+
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the visual rules, tokens and
+anti-patterns; contributions should preserve them.
 
 ---
 
@@ -242,10 +271,11 @@ secure_vote/
 ├── __main__.py   CLI (init / serve / demo / add-voter / import-voters / state /
 │                 tally / verify / checkpoint / export / reset)
 └── static/       One stylesheet
-tests/            104 tests: crypto, config, CLI, domain, checkpoints, HTTP, exports
+tests/            105 tests: crypto, config, CLI, domain, checkpoints, HTTP, exports, design
 scripts/e2e.py          Dependency-free HTTP lifecycle used by CI
-scripts/browser_e2e.py  Real Chromium UI + download lifecycle used by CI
+scripts/browser_e2e.py  Real Chromium UI, CSS + download lifecycle used by CI
 examples/               Sample election definition and voter CSV
+docs/DESIGN.md          Civic-ledger visual system and UX rationale
 docs/EXTENDING.md       Production-grade upgrade path
 .github/                CI, issue / PR templates, community policies
 screenshots/            Real UI captures (headless Chromium)
@@ -390,7 +420,7 @@ Runtime state (`data/`, `*.db`, `*.key`) is gitignored.
 ## Testing
 
 ```bash
-python3 -m unittest discover -s tests -v       # 104 tests, ~2 s, no deps
+python3 -m unittest discover -s tests -v       # 105 tests, ~2 s, no deps
 python3 scripts/e2e.py                         # full lifecycle over real sockets
 make check                                     # tests + 90% coverage gate + e2e
 ```
@@ -412,7 +442,7 @@ coverage report --fail-under=90
 ### Real-browser E2E
 
 CI also installs Playwright's Chromium and renders the app — no JS, but real
-CSS, forms, cookies, CSRF tokens, downloads and redirects:
+CSS, serif type, ledger rules, forms, cookies, CSRF tokens, downloads and redirects:
 
 ```bash
 make browser-install                 # installs requirements-browser.txt + Chromium
@@ -425,7 +455,7 @@ Playwright-managed download. The browser test uses
 one-time receipt, checks the public board, confirms results are sealed, closes
 as admin through the UI, and validates both JSON downloads.
 
-Current result: **104 tests, 96% statement coverage**; core modules are 92–100%.
+Current result: **105 tests, 96% statement coverage**; core modules are 92–100%.
 CI (`.github/workflows/ci.yml`) enforces the gate on Python 3.10–3.13, runs
 `scripts/e2e.py` plus a CLI/import/export smoke test, and runs a separate
 `Real Chromium E2E` job on Python 3.12.
@@ -445,6 +475,7 @@ See [`docs/EXTENDING.md`](docs/EXTENDING.md) for the detailed, ordered upgrade p
 
 ## Contributing & repository policies
 
+- [`docs/DESIGN.md`](docs/DESIGN.md) — visual system, UX rationale and anti-patterns
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — local setup, test gates and PR expectations
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability (please do not open a public issue)
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — community standards
