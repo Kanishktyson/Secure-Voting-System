@@ -1,0 +1,3 @@
+# SecureVote has NO third-party runtime dependencies: it runs on the Python
+# standard library alone (3.10+). The test suite is `unittest`, also stdlib.
+# Deliberately left empty — do not add packages here without a security review.

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/Kanishktyson/Secure-Voting-System/security/advisories/new
+    about: Please use private reporting for vulnerabilities; see SECURITY.md.
+  - name: Read the production upgrade path
+    url: https://github.com/Kanishktyson/Secure-Voting-System/blob/main/docs/EXTENDING.md
+    about: Planned architectural work for real election-grade systems.
