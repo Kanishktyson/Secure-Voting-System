@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Runtime state (contains voter data, ballots and the HMAC key)
+data/
+*.db
+*.db-shm
+*.db-wal
+*.key
+.env
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

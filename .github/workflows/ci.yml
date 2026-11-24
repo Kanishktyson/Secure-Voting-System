@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install development tools
+        run: python -m pip install --upgrade pip -r requirements-dev.txt
+
+      - name: Compile all modules
+        run: python -m compileall -q secure_vote tests scripts
+
+      - name: Run unit + integration tests with coverage gate
+        run: |
+          coverage run --source=secure_vote -m unittest discover -s tests -v
+          coverage report --fail-under=90
+
+      - name: End-to-end lifecycle smoke test
+        run: python scripts/e2e.py
+
+      - name: CLI + import/export smoke test
+        run: |
+          python -m secure_vote --db /tmp/ci-election.db init --admin-password "CiAdminPass123!"
+          python -m secure_vote --db /tmp/ci-election.db add-voter ci_voter --password "CiVoterPass123!"
+          python -m secure_vote --db /tmp/ci-election.db import-voters examples/voters.csv
+          python -m secure_vote --db /tmp/ci-election.db checkpoint --output /tmp/ci-checkpoint.json
+          python -m secure_vote --db /tmp/ci-election.db verify --checkpoint /tmp/ci-checkpoint.json
+          python -m secure_vote --db /tmp/ci-election.db state closed
+          python -m secure_vote --db /tmp/ci-election.db tally
+          python -m secure_vote --db /tmp/ci-election.db export --what results --output /tmp/ci-results.json
+          python -m secure_vote --db /tmp/ci-election.db export --what audit --output /tmp/ci-audit.json
+          python -c 'import json; r=json.load(open("/tmp/ci-results.json")); a=json.load(open("/tmp/ci-audit.json")); assert r["format"]=="securevote/results-v1"; assert a["format"]=="securevote/audit-v1"; assert a["count"] > 0'
+          SVS_ELECTION_FILE=examples/election.json python -m secure_vote --db /tmp/ci-custom.db init --admin-password "CiAdminPass123!"
+          SVS_ELECTION_FILE=examples/election.json python -m secure_vote --db /tmp/ci-custom.db state closed
+          SVS_ELECTION_FILE=examples/election.json python -m secure_vote --db /tmp/ci-custom.db export --what results --output /tmp/ci-custom.json
+          python -c 'import json; r=json.load(open("/tmp/ci-custom.json")); assert r["election"]["title"]=="Campus Council Election 2026"; assert set(r["results"]["counts"])=={"atlas","beacon","compass","delta"}'
+
+  browser-e2e:
+    name: Real Chromium E2E
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
+        run: python -m pip install --upgrade pip -r requirements-browser.txt
+
+      - name: Install Chromium and system libraries
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run rendered-browser lifecycle test
+        run: python scripts/browser_e2e.py

@@ -1,0 +1,58 @@
+name: Feature request
+description: Suggest an improvement while keeping the prototype honest
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is deliberately small, stdlib-only and educational. Please
+        explain how a proposal preserves that scope; production election
+        features belong in `docs/EXTENDING.md` unless they are concrete work.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or gap
+      description: What is difficult, unclear or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change, including CLI / UI / API surface.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else could solve this, and why was it not chosen?
+    validations:
+      required: false
+  - type: dropdown
+    id: dependencies
+    attributes:
+      label: Runtime dependencies
+      options:
+        - No new runtime dependencies
+        - Dev/CI dependency only
+        - Would require a runtime dependency (explain why below)
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Threat-model impact
+      description: Does this affect ballot secrecy, verifiability or the trusted-server assumption?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I read the README's threat model and limitations.
+          required: true
+        - label: This is not a claim that the prototype is ready for real elections.
+          required: true

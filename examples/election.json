@@ -1,0 +1,26 @@
+{
+  "title": "Campus Council Election 2026",
+  "description": "Choose one representative for the student council. Every ballot is anonymous and independently verifiable.",
+  "candidates": [
+    {
+      "key": "atlas",
+      "label": "Atlas Ticket",
+      "description": "Longer library hours and open study spaces"
+    },
+    {
+      "key": "beacon",
+      "label": "Beacon List",
+      "description": "More funding for student clubs and sports"
+    },
+    {
+      "key": "compass",
+      "label": "Compass Group",
+      "description": "Sustainable transport across campus"
+    },
+    {
+      "key": "delta",
+      "label": "Delta Collective",
+      "description": "Transparent budgeting and mental-health support"
+    }
+  ]
+}

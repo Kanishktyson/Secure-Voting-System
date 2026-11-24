@@ -1,0 +1,74 @@
+name: Bug report
+description: Report reproducible incorrect behaviour in the prototype
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Please do **not** include
+        passwords, receipt secrets, database files or personal data. For a
+        suspected vulnerability, use private security reporting instead.
+  - type: input
+    id: version
+    attributes:
+      label: Commit / version
+      description: Output of `git rev-parse --short HEAD`, or a tag name.
+      placeholder: e.g. 2fdb791
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, browser (if UI-related) and command used.
+      placeholder: e.g. Python 3.12 / Ubuntu 24.04 / Chromium 130
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead? Include exact error text if available.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Numbered steps or a small script. Remember to redact secrets.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI / configuration
+        - HTTP / UI
+        - Election domain / crypto
+        - Import / export
+        - Tests / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I reproduced this on the current branch.
+          required: true
+        - label: I ran `make check` (or noted the failure below).
+          required: false
+        - label: This is not a request to use the prototype for a real election.
+          required: true
